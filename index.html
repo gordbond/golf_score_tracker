@@ -178,20 +178,24 @@ TO-DO LIST:
 
             navigator.geolocation.getCurrentPosition(success, error);
 
+            infobox = new Microsoft.Maps.Infobox(map.getCenter(), {
+                visible: false
+            });
+            infobox.setMap(map);
+
+
         }
 
         let submitClicked = (event) => {
                 event.preventDefault()
                 let unencodedLoc = document.getElementById("locationLookUp").value;
-                //geocodeQuery(unencodedLoc);
-                //console.log("RETRIEVED LOC: " + retrievedLocation);
                 let loc = encodeURI(unencodedLoc);
-                let url1 = `http://dev.virtualearth.net/REST/v1/Locations/${loc}?o=&key=Ai65CY4gKwZno3n8tBErzqZzy5J3HlkcgrxXbsw5mWJnLel2CiKSlmzal-lAhL50`;
-                //let url2 = `https://dev.virtualearth.net/REST/v1/LocalSearch/?query=golf&userLocation=${loc}&key=Ai65CY4gKwZno3n8tBErzqZzy5J3HlkcgrxXbsw5mWJnLel2CiKSlmzal-lAhL50`;
-
+                let url1 = `http://dev.virtualearth.net/REST/v1/Locations/${loc}%20golf%20course?o=&key=Ai65CY4gKwZno3n8tBErzqZzy5J3HlkcgrxXbsw5mWJnLel2CiKSlmzal-lAhL50`;
+                //let url1 = 'http://dev.virtualearth.net/REST/v1/Locations/tower%20of%20london?inclnb=1&o=xml&key=Ai65CY4gKwZno3n8tBErzqZzy5J3HlkcgrxXbsw5mWJnLel2CiKSlmzal-lAhL50';
+                //First call to get the co-ordinates of the location
                 $.get(url1, 
                     function (data) {
-                        
+                        console.log(data.resourceSets[0]);
                         let latitude = data.resourceSets[0].resources[0].geocodePoints[0].coordinates[0];
                         let longitude = data.resourceSets[0].resources[0].geocodePoints[0].coordinates[1];
                         var location = new Microsoft.Maps.Location(
@@ -207,20 +211,46 @@ TO-DO LIST:
                         $.get(url2, 
                             function (data2) {
                                 let ds = data2.resourceSets[0];
+                        
                                 for(i=0; i<ds.resources.length;i++){
-                                    
+                                    console.log(ds.resources[i]);
                                     let latitude2 = ds.resources[i].geocodePoints[0].coordinates[0];
                                     let longitude2 = ds.resources[i].geocodePoints[0].coordinates[1];
                                     var location2 = new Microsoft.Maps.Location(
                                         latitude2,
                                         longitude2
                                     );
-                                    var pin = new Microsoft.Maps.Pushpin(location2);
+                                    var pin = new Microsoft.Maps.Pushpin(location2, {title: ds.resources[i].name});
+
+                                    pin.metadata = {
+                                        description: "<a href= '#'>" + ds.resources[i].name + "</a>" 
+                                        + "<br>" + ds.resources[i].Address.formattedAddress + "<br>" + "<a href='" + ds.resources[i].Website + "' target='_blank'>Visit their website</a>"
+                                        
+                                    };
+
+                                    Microsoft.Maps.Events.addHandler(pin, 'click', pushpinClicked);
                                     map.entities.push(pin);
                                 }
                             }, 'json');
                         }
                 , 'json');
+
+            }
+
+            //-------------------------PUSHPIN CLICKED-----------------------------//
+            function pushpinClicked(e) {
+                if (e.target.metadata) {
+                    infobox.setOptions({
+                        description: e.target.metadata.description,
+                        location: e.target.getLocation(),
+                        visible: true
+                    });
+                    console.log(e.target.metadata.description);
+                    let directionsLink = document.getElementsByClassName("directions");
+                }
+                map.setView({
+                    center: e.target.getLocation()
+                });
 
             }
             //-------------------------------NEW GEOCODE QUERY-----------------------//
