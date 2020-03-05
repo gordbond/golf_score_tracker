@@ -1,0 +1,273 @@
+<!-- 
+TO-DO LIST:
+- I think there is probably going to have to be 2 tables -> one for initial load  & one for golfer info 
+- Include jquery
+- Create search functionality 
+- Create score list div/page
+- Create search.php
+- Create edit.php
+- create delete.php
+- Create add.php
+- Create mySQL db
+- HARD CODE 10 location from MySQL db
+
+- figure out how https://docs.microsoft.com/en-us/bingmaps/rest-services/locations/location-recognition
+
+
+ -->
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <link rel="stylesheet" href="css/styles.css">
+    <script src="js/jquery-3.4.1.min.js"></script>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    <!-- <script src="https://code.jquery.com/jquery-3.1.1.min.js" integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n" crossorigin="anonymous"></script> -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js" integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" crossorigin="anonymous"></script>
+    
+    <title>Golf Score Tracker</title>
+</head>
+<body>
+    <!-- NAV HEADER -->
+    <Container id='header'>
+        <div id='logoContainer' style="width:200px;" class="img-fluid mx-auto d-block">
+            <img src="img/logo.jpg" class="img-fluid" alt='Logo'>
+        </div>
+        <nav class="navbar navbar-expand-lg navbar-light" style="background-color: #fff;">
+            <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse nav justify-content-center" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item active">
+                        <a class="nav-link" href="#">Search Courses<span class="sr-only">(current)</span></a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">List Scores</a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+    </Container>
+    <!-- MAIN CONTENT -->
+    <Container id='mainContainer' class="row container-fluid mx-auto" style="width:96%">
+                <div id='map' class="col-12 col-sm-6 mx-auto" 
+                    style='
+                    max-width: 500px; 
+                    width:40%; 
+                    height:500px; 
+                    border:solid green 6px; 
+                    padding: 15px 30px;'>
+                    <div id='myMap'style='width:100%; height:70%; margin: auto;'>
+                        
+                    </div>
+                    <form style="margin-top: 10px;">
+                        <div class="form-group">
+                            <label for="locationLookUp">Enter course or location</label>
+                            <input type="text" class="form-control" id="locationLookUp" aria-describedby="locSearch">
+                            <!-- <small id="locSearch" class="form-text text-muted">We'll never share your email with anyone else.</small> -->
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary" style="background-color: green; border:none;" onclick="return submitClicked(event);">Search</button>
+                    </form>
+                </div>
+            
+            
+                <div id='scores' class="col-12 col-sm-6 mx-auto" 
+                    style='
+                    max-width: 500px; 
+                    width:40%; 
+                    height:500px; 
+                    border:solid green 6px; 
+                    padding: 15px 30px;'>
+                    <div id='scoreContent'style='width:100%; height:100%;'>
+                        <h1 class="text-center" style="border-bottom: solid 1px black; padding: 10px 5px;">Scores</h1>
+                        <h3>Course Title</h3>
+                        <div>
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">#</th>
+                                        <th scope="col">First</th>
+                                        <th scope="col">Last</th>
+                                        <th scope="col">Handle</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <th scope="row">1</th>
+                                        <td>Mark</td>
+                                        <td>Otto</td>
+                                        <td>@mdo</td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="row">2</th>
+                                        <td>Jacob</td>
+                                        <td>Thornton</td>
+                                        <td>@fat</td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="row">3</th>
+                                        <td>Larry</td>
+                                        <td>the Bird</td>
+                                        <td>@twitter</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+    </Container>
+    <script type="text/javascript">
+
+        var map;
+        var infobox;
+        var currentLat;
+        var currentLong;
+        var directionsManager;
+        var searchManager;
+        var retrievedLocation;
+
+        function loadMapScenario() {
+
+            
+            //-----------------CREATE MAP------------------------//
+            map = new Microsoft.Maps.Map(document.getElementById('myMap'), {
+                center: new
+                Microsoft.Maps.Location(43.2557, -79.8711)
+            });
+
+            //-----------------GEOLOCATION SUCCESS - GET CURRENT POSITION AND ADD PUSHPIN------------------------//
+
+
+            let success = (position) => {
+                var location = new Microsoft.Maps.Location(
+                    currentLat = position.coords.latitude,
+                    currentLong = position.coords.longitude
+                );
+
+                var userPushPin = new Microsoft.Maps.Pushpin(location);
+                map.entities.push(userPushPin);
+            }
+            //----------------Error handling for Geolocation------------------------//
+
+            let error = () => {
+                switch (error.code) {
+                    case error.PERMISSION_DENIED:
+                        errorMessage.innerHTML = "PERMISSION_DENIED: The location acquisition process failed " +
+                            "because the document does not have permission to use the Geolocation API."
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        errorMessage.innerHTML = "Location information is unavailable."
+                        break;
+                    case error.TIMEOUT:
+                        errorMessage.innerHTML = "The request to get user location timed out."
+                        break;
+                    default:
+                        errorMessage.innerHTML = "An unknown error occurred."
+                        break;
+                }
+            }
+
+
+            navigator.geolocation.getCurrentPosition(success, error);
+
+        }
+
+        let submitClicked = (event) => {
+                event.preventDefault()
+                let unencodedLoc = document.getElementById("locationLookUp").value;
+                //geocodeQuery(unencodedLoc);
+                //console.log("RETRIEVED LOC: " + retrievedLocation);
+                let loc = encodeURI(unencodedLoc);
+                let url1 = `http://dev.virtualearth.net/REST/v1/Locations/${loc}?o=&key=Ai65CY4gKwZno3n8tBErzqZzy5J3HlkcgrxXbsw5mWJnLel2CiKSlmzal-lAhL50`;
+                //let url2 = `https://dev.virtualearth.net/REST/v1/LocalSearch/?query=golf&userLocation=${loc}&key=Ai65CY4gKwZno3n8tBErzqZzy5J3HlkcgrxXbsw5mWJnLel2CiKSlmzal-lAhL50`;
+
+                $.get(url1, 
+                    function (data) {
+                        
+                        let latitude = data.resourceSets[0].resources[0].geocodePoints[0].coordinates[0];
+                        let longitude = data.resourceSets[0].resources[0].geocodePoints[0].coordinates[1];
+                        var location = new Microsoft.Maps.Location(
+                            latitude,
+                            longitude
+                        );
+                        //Center Map at new location
+                        map.setView({
+                            center: location
+                        });
+                        //Get local golf courses
+                        let url2 = `https://dev.virtualearth.net/REST/v1/LocalSearch/?query=golf&userLocation=${latitude},${longitude}&key=Ai65CY4gKwZno3n8tBErzqZzy5J3HlkcgrxXbsw5mWJnLel2CiKSlmzal-lAhL50`;
+                        $.get(url2, 
+                            function (data2) {
+                                let ds = data2.resourceSets[0];
+                                for(i=0; i<ds.resources.length;i++){
+                                    
+                                    let latitude2 = ds.resources[i].geocodePoints[0].coordinates[0];
+                                    let longitude2 = ds.resources[i].geocodePoints[0].coordinates[1];
+                                    var location2 = new Microsoft.Maps.Location(
+                                        latitude2,
+                                        longitude2
+                                    );
+                                    var pin = new Microsoft.Maps.Pushpin(location2);
+                                    map.entities.push(pin);
+                                }
+                            }, 'json');
+                        }
+                , 'json');
+
+            }
+            //-------------------------------NEW GEOCODE QUERY-----------------------//
+
+
+            let geocodeQuery = (query) => {
+            //Check to see if search manager exists
+            if (!searchManager) {
+                Microsoft.Maps.loadModule('Microsoft.Maps.Search', () => {
+                    searchManager = new Microsoft.Maps.Search.SearchManager(map);
+                    geocodeQuery(query);
+                })
+            } else {
+                var searchRequest = {
+                    where: query,
+                    callback: (r) => {
+                        //Add the first result to the map and zoom into it.
+                        if (r && r.results && r.results.length > 0) {
+
+                            // add a pushpin to the map at the location supplied
+                            // in the results
+                            console.log("BEST VIEW: " + r.results[0].bestView);
+                            this.retrievedLocation = r.results[0].location;
+                            var pin = new Microsoft.Maps.Pushpin(r.results[0].location);
+                            map.entities.push(pin);
+
+                            // set the view of the map to the best view based 
+                            // on the result
+                            map.setView({
+                                bounds: r.results[0].bestView
+                            });
+                        }
+                    },
+                    errorCallback: (e) => {
+                        alert("No results found.");
+                    }
+                };
+                //Make the geocode request.
+                searchManager.geocode(searchRequest);
+            }
+            console.log( query);
+        }
+    </script>
+    <script type='text/javascript'
+        src='https://www.bing.com/api/maps/mapcontrol?key=Ai65CY4gKwZno3n8tBErzqZzy5J3HlkcgrxXbsw5mWJnLel2CiKSlmzal-lAhL50&callback=loadMapScenario'
+        async defer>
+    </script>
+    
+</body>
+</html>
