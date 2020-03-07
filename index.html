@@ -10,6 +10,7 @@ TO-DO LIST:
 - Create add.php
 - Create mySQL db
 - HARD CODE 10 location from MySQL db
+FOR LATER: map.entities.clear();
 
 - figure out how https://docs.microsoft.com/en-us/bingmaps/rest-services/locations/location-recognition
 
@@ -88,36 +89,25 @@ TO-DO LIST:
                     padding: 15px 30px;'>
                     <div id='scoreContent'style='width:100%; height:100%;'>
                         <h1 class="text-center" style="border-bottom: solid 1px black; padding: 10px 5px;">Scores</h1>
-                        <h3>Course Title</h3>
+                        <h3 id="courseTitle">Course Title</h3>
                         <div>
                             <table class="table table-striped">
                                 <thead>
                                     <tr>
-                                        <th scope="col">#</th>
-                                        <th scope="col">First</th>
-                                        <th scope="col">Last</th>
-                                        <th scope="col">Handle</th>
+                                        <th scope="col">Name</th>
+                                        <th scope="col">Score</th>
+                                        <th scope="col">Date</th>
+                                        
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    <tr>
-                                        <th scope="row">1</th>
-                                        <td>Mark</td>
-                                        <td>Otto</td>
-                                        <td>@mdo</td>
-                                    </tr>
+                                <tbody id="tableBody">
                                     <tr>
                                         <th scope="row">2</th>
                                         <td>Jacob</td>
                                         <td>Thornton</td>
-                                        <td>@fat</td>
                                     </tr>
-                                    <tr>
-                                        <th scope="row">3</th>
-                                        <td>Larry</td>
-                                        <td>the Bird</td>
-                                        <td>@twitter</td>
-                                    </tr>
+                                    
+                                    
                                 </tbody>
                             </table>
                         </div>
@@ -140,44 +130,13 @@ TO-DO LIST:
             //-----------------CREATE MAP------------------------//
             map = new Microsoft.Maps.Map(document.getElementById('myMap'), {
                 center: new
-                Microsoft.Maps.Location(43.2557, -79.8711)
+                Microsoft.Maps.Location(36.56964874267578, -121.94976043701172)
             });
 
-            //-----------------GEOLOCATION SUCCESS - GET CURRENT POSITION AND ADD PUSHPIN------------------------//
-
-
-            let success = (position) => {
-                var location = new Microsoft.Maps.Location(
-                    currentLat = position.coords.latitude,
-                    currentLong = position.coords.longitude
-                );
-
-                var userPushPin = new Microsoft.Maps.Pushpin(location);
-                map.entities.push(userPushPin);
-            }
-            //----------------Error handling for Geolocation------------------------//
-
-            let error = () => {
-                switch (error.code) {
-                    case error.PERMISSION_DENIED:
-                        errorMessage.innerHTML = "PERMISSION_DENIED: The location acquisition process failed " +
-                            "because the document does not have permission to use the Geolocation API."
-                        break;
-                    case error.POSITION_UNAVAILABLE:
-                        errorMessage.innerHTML = "Location information is unavailable."
-                        break;
-                    case error.TIMEOUT:
-                        errorMessage.innerHTML = "The request to get user location timed out."
-                        break;
-                    default:
-                        errorMessage.innerHTML = "An unknown error occurred."
-                        break;
-                }
-            }
-
-
-            navigator.geolocation.getCurrentPosition(success, error);
-
+            //--------GET DATA FROM OG LOCATIONS------//
+            getOGLocations();
+            //getScores('Pebble Beach Golf Links');
+            
             infobox = new Microsoft.Maps.Infobox(map.getCenter(), {
                 visible: false
             });
@@ -186,12 +145,69 @@ TO-DO LIST:
 
         }
 
+        //Get Scores
+        function getScores(course_name){
+            console.log(course_name);
+            $.post('php/starting_loc.php', {
+                act: 'getScores', 
+                course: course_name
+                }, function(data){
+                    console.log(data);
+                    //Clear
+                    $('#courseTitle').html(course_name);
+                    $('#tableBody').html("");
+                    for(i=0; i<data.length; i++){
+                        //Add all the scores
+                        $('#tableBody').append(
+                            `<tr>
+                                <th scope="row">${data[i]['fname'] + " " + data[i]['lname'] }</th>
+                                <td>${data[i]['score']}</td>
+                                <td>${data[i]['date']}</td>
+                            </tr>`
+                            
+                        );
+                        
+                    }
+
+                }, 'json');
+        }
+
+
+
+
+        //Retrieve first 10 course locations
+        function getOGLocations(){
+            $.post('php/starting_loc.php', {
+                act: 'getOGLocations' 
+                }, function(data){
+                    console.log(data);
+                    for(i=0; i<data.length; i++){
+                        console.log(data[i]);
+                        let lat = parseFloat(data[i]["latitude"]);
+                        let long = parseFloat(data[i]["longitude"]);
+                        let location = new Microsoft.Maps.Location(lat, long);
+                        console.log(`<a onclick="getScores('${data[i]['course_name']}')}"> `);
+                        let pin = new Microsoft.Maps.Pushpin(location, {title: data[i]['course_name']});
+                        pin.metadata = {
+                            description: `<a style='color:blue;' onclick="getScores('${data[i]['course_name']}')"> ${data[i]['course_name']} </a> 
+                            <br> ${data[i]['address']} <br> <a href='${data[i]['website']}' target='_blank'>Visit their website</a>`
+                            
+                        };
+                        Microsoft.Maps.Events.addHandler(pin, 'click', pushpinClicked);
+                        map.entities.push(pin);
+                        
+                    }
+
+                }, 'json');
+                
+        }
+
+
         let submitClicked = (event) => {
                 event.preventDefault()
                 let unencodedLoc = document.getElementById("locationLookUp").value;
                 let loc = encodeURI(unencodedLoc);
                 let url1 = `http://dev.virtualearth.net/REST/v1/Locations/${loc}%20golf%20course?o=&key=Ai65CY4gKwZno3n8tBErzqZzy5J3HlkcgrxXbsw5mWJnLel2CiKSlmzal-lAhL50`;
-                //let url1 = 'http://dev.virtualearth.net/REST/v1/Locations/tower%20of%20london?inclnb=1&o=xml&key=Ai65CY4gKwZno3n8tBErzqZzy5J3HlkcgrxXbsw5mWJnLel2CiKSlmzal-lAhL50';
                 //First call to get the co-ordinates of the location
                 $.get(url1, 
                     function (data) {
@@ -223,8 +239,8 @@ TO-DO LIST:
                                     var pin = new Microsoft.Maps.Pushpin(location2, {title: ds.resources[i].name});
 
                                     pin.metadata = {
-                                        description: "<a href= '#'>" + ds.resources[i].name + "</a>" 
-                                        + "<br>" + ds.resources[i].Address.formattedAddress + "<br>" + "<a href='" + ds.resources[i].Website + "' target='_blank'>Visit their website</a>"
+                                        description: `<a style='color:blue;' onclick="getScores('${data[i]['course_name']}')"> ${ds.resources[i].name} </a> 
+                                        <br> ${ds.resources[i].Address.formattedAddress}  <br>  <a href='${ds.resources[i].Website}' target='_blank'>Visit their website</a>`
                                         
                                     };
 
