@@ -1,3 +1,12 @@
 a:hover{
     cursor: pointer;
 }
+
+input[type="date"]::-webkit-clear-button {
+    display: none;
+}
+
+/* Removes the spin button */
+input[type="date"]::-webkit-inner-spin-button { 
+    display: none;
+}
