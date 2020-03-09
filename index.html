@@ -92,7 +92,8 @@ FOR LATER: map.entities.clear();
                         <h1 class="text-center" style="border-bottom: solid 1px black; padding: 10px 5px;">Scores</h1>
                         <h3 id="courseTitle">Course Title</h3>
                         <button id="addScoreButton" type="submit" class="btn btn-primary" style="background-color: green; border:none; margin-bottom: 10px;" onclick="return addScore(event);">Add a score</button>
-                        <div class="table-responsive">  
+                        <button id="addGolferButton" type="submit" class="btn btn-primary" style="background-color: green; border:none; margin-bottom: 10px;" onclick="return addGolfer(event);">Add a golfer</button>
+                        <div class="table-responsive table-wrapper-scroll-y my-custom-scrollbar" >  
                             <table class="table table-striped">
                                 <thead>
                                     <tr>
@@ -154,29 +155,62 @@ FOR LATER: map.entities.clear();
 
         }
 
-        //Get Scores
+
+        //Create a course
+        async function createCourse(course_name){
+            //use course name to get course data from API
+            let latitude, longitude;
+
+            let unencodedLoc = course_name;
+            let loc = encodeURI(unencodedLoc);
+            let url = `http://dev.virtualearth.net/REST/v1/Locations/${loc}%20golf%20course?o=&key=Ai65CY4gKwZno3n8tBErzqZzy5J3HlkcgrxXbsw5mWJnLel2CiKSlmzal-lAhL50`;
+                //First call to get the co-ordinates of the location
+            console.log('encoded url '+ url);
+            await $.get(url, 
+                function (data) {
+                    latitude = data.resourceSets[0].resources[0].geocodePoints[0].coordinates[0];
+                    longitude = data.resourceSets[0].resources[0].geocodePoints[0].coordinates[1];
+            });
+
+            $.post('php/functions.php', {
+                act: 'createCourse',
+                name: course_name,
+                latitude: latitude,
+                longitude: longitude
+
+                }, function(data){
+                    console.log(data);
+                }, 'json');
+
+        }
+
+        //Get Scores - populate the table
         function getScores(course_name){
             console.log(course_name);
-            $.post('php/starting_loc.php', {
+            createCourse(course_name);
+            $.post('php/functions.php', {
                 act: 'getScores', 
                 course: course_name
                 }, function(data){
                     console.log(data);
-                    //Clear
+                    console.log(data.length);
                     $('#courseTitle').html(course_name);
                     $('#tableBody').html("");
+                   
+                    
                     for(i=0; i<data.length; i++){
                         //Add all the scores
-                        $('#tableBody').append(
+                        console.log(data[i]);
+                        $('#tableBody').prepend(
                             `<tr>
-                                <th scope="row">${data[i]['fname'] + " " + data[i]['lname'] }</th>
+                                <th scope="row">${data[i]['golfer_name']}</th>
                                 <td>${data[i]['score']}</td>
                                 <td>${data[i]['date']}</td>
                                 <td>
                                     <a>Edit</a>
                                 </td>
                                 <td>
-                                    <a style="color:red;">Delete</a>
+                                    <a style="color:red;" onclick="return deleteScore(${data[i]['score_id']});">Delete</a>
                                 </td>
                             </tr>`
                             
@@ -188,32 +222,140 @@ FOR LATER: map.entities.clear();
         }
 
 
-        function submitScore(event){
-            event.preventDefault();
 
-        }
 
-        //Add a new score
-        function addScore(event){
+        //Add new golfer
+        function addGolfer(event){
             event.preventDefault();
-            $('#tableBody').append(
+            $("#addScoreButton").prop('disabled', true);
+            $("#addGolferButton").prop('disabled', true);
+            
+            $('#tableBody').prepend(
                 `<tr>
-                    <th scope="row" > <input style="min-width:130px;" type="text" class="form-control" aria-label="Default" aria-describedby="inputGroup-sizing-default"></th>
-                    <td> <input style="min-width:20px;" type="text" class="form-control" aria-label="Default" aria-describedby="inputGroup-sizing-default"></td>
-                    <td> <input style="width:150px;"  type="date" class="form-control" aria-label="Default" aria-describedby="inputGroup-sizing-default"></td>
-                    <td>
-                        <a style="color:green;">Add</a>
-                    </td>
+                    <th scope="row" > <input id="nameInput" style="min-width:130px;" type="text" class="form-control" aria-label="Default" aria-describedby="inputGroup-sizing-default" ></th>
                     <td></td>
+                    <td></td>
+                    <td>
+                        <a style="color:green;"  
+                        onclick="return submitName($('#nameInput').val());"
+                        
+                        >Add</a>
+                    </td>
+                    <td><a onclick="return cancel();">
+                        Cancel</a>
+                    </td>
                 </tr>`
             );
-            $("#addScoreButton").prop('disabled', true);
+            
         }
+
+        //Submit new golfer
+        function submitName(name){
+            // event.preventDefault();
+            console.log("IS THIS THING WORKING? " + name);
+            $.post('php/functions.php', {
+                act: 'setGolferName', 
+                name: name
+                }, function(data){
+                    console.log(data);
+                }, 'json');
+            $("#addScoreButton").prop('disabled', false);
+            $("#addGolferButton").prop('disabled', false);
+            getScores($("#courseTitle").html());
+        }
+        //CANCEL operation
+        function cancel(){
+            $("#addScoreButton").prop('disabled', false);
+            $("#addGolferButton").prop('disabled', false);
+            getScores($("#courseTitle").html());
+        }
+
+
+        //---------------ADD SCORE-----------------//
+
+
+
+
+        //Add New Score
+        async function addScore(event){
+            event.preventDefault();
+            $("#addScoreButton").prop('disabled', true);
+            $("#addGolferButton").prop('disabled', true);
+            let options;
+
+            await $.post('php/functions.php', {
+                act: 'getGolfers'
+                }, function(data){
+                    console.log(data);
+                    for(i=0; i<data.length; i++){
+                        //Add all the scores
+                        console.log(data[i]);
+                        options += 
+                            "<option value='" + data[i]['id'] + " '>" + data[i]['name'] + "</option>";
+                    }
+
+                }, 'json');
+
+            $('#tableBody').prepend(
+                `<tr>
+                    <th scope="row" >
+                    <select class="form-control" id="nameList" style="width:150px;">
+                        ${options}
+                    </select>
+                    </th>
+                        
+                    
+                    <td> <input id="scoreInput" style="min-width:20px;" type="text" class="form-control" aria-label="Default" aria-describedby="inputGroup-sizing-default"></td>
+                    <td> <input id="dateInput" style="width:150px;"  type="date" class="form-control" aria-label="Default" aria-describedby="inputGroup-sizing-default"></td>
+                    <td>
+                        <a style="color:green;"  
+                        onclick="submitScore($('#nameList').val(), $('#scoreInput').val(), $('#dateInput').val())"
+                        >Add</a>
+                    </td>
+                    <td><a onclick="return cancel();">
+                        Cancel</a>
+                    </td>
+                </tr>`
+            );
+            
+        }
+
+        //Submit New Score
+        function submitScore(id, score, date){
+            console.log(id);
+            $.post('php/functions.php', {
+                act: 'setScore', 
+                id: id,
+                score: score,
+                date: date,
+                course_name: $("#courseTitle").html()
+                }, function(data){
+                    console.log(data);
+                    
+                }, 'json');
+            $("#addScoreButton").prop('disabled', false);
+            $("#addGolferButton").prop('disabled', false);
+            getScores($("#courseTitle").html());
+        }
+
+
+
+
+        //--------------------DELETE SCORE---------------------//
+
+        function deleteScore(){
+
+        }
+
+
+
+
+
 
 
         //Retrieve first 10 course locations
         function getOGLocations(){
-            $.post('php/starting_loc.php', {
+            $.post('php/functions.php', {
                 act: 'getOGLocations' 
                 }, function(data){
                     console.log(data);
@@ -239,7 +381,8 @@ FOR LATER: map.entities.clear();
         }
 
 
-        let submitClicked = (event) => {
+            //Search for courses
+            function submitClicked(event){
                 event.preventDefault()
                 let unencodedLoc = document.getElementById("locationLookUp").value;
                 let loc = encodeURI(unencodedLoc);
@@ -275,7 +418,7 @@ FOR LATER: map.entities.clear();
                                     var pin = new Microsoft.Maps.Pushpin(location2, {title: ds.resources[i].name});
 
                                     pin.metadata = {
-                                        description: `<a style='color:blue;' onclick="getScores('${ds.resources[i].name}')"> ${ds.resources[i].name} </a> 
+                                        description: `<a id="course_name" style='color:blue;' onclick="getScores('${ds.resources[i].name}')"> ${ds.resources[i].name} </a> 
                                         <br> ${ds.resources[i].Address.formattedAddress}  <br>  <a href='${ds.resources[i].Website}' target='_blank'>Visit their website</a>`
                                         
                                     };
