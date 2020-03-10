@@ -1,18 +1,8 @@
 <!-- 
 TO-DO LIST:
-- I think there is probably going to have to be 2 tables -> one for initial load  & one for golfer info 
-- Include jquery
-- Create search functionality 
-- Create score list div/page
-- Create search.php
-- Create edit.php
-- create delete.php
-- Create add.php
-- Create mySQL db
-- HARD CODE 10 location from MySQL db
-FOR LATER: map.entities.clear();
+- Data validation check score
+- Required keyword?
 
-- figure out how https://docs.microsoft.com/en-us/bingmaps/rest-services/locations/location-recognition
 
 
  -->
@@ -46,11 +36,11 @@ FOR LATER: map.entities.clear();
             </button>
             <div class="collapse navbar-collapse nav justify-content-center" id="navbarNav">
                 <ul class="navbar-nav">
-                    <li class="nav-item active">
-                        <a class="nav-link" href="#">Search Courses<span class="sr-only">(current)</span></a>
+                    <li class="nav-item">
+                        <a id="searchButton" class="nav-link active" href="#" onclick="return toggleMainView();">Search Courses</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#">List Scores</a>
+                    <a id="listButton" class="nav-link" href="#" onclick="return toggleListView();">List Scores</a>
                     </li>
                 </ul>
             </div>
@@ -60,7 +50,7 @@ FOR LATER: map.entities.clear();
     <Container id='mainContainer' class="row container-fluid mx-auto" style="width:96%">
                 <div id='map' class="col-12 col-m-6 mx-auto" 
                     style='
-                    max-width: 600px; 
+                    max-width: 620px; 
                     width:40%; 
                     height:500px; 
                     border:solid green 6px; 
@@ -83,16 +73,16 @@ FOR LATER: map.entities.clear();
             
                 <div id='scores' class="col-12 col-m-6 mx-auto" 
                     style='
-                    max-width: 600px; 
+                    max-width: 620px; 
                     width:40%; 
                     height:500px; 
                     border:solid green 6px; 
                     padding: 15px 30px;'>
                     <div id='scoreContent'style='width:100%; height:100%;'>
                         <h1 class="text-center" style="border-bottom: solid 1px black; padding: 10px 5px;">Scores</h1>
-                        <h3 id="courseTitle">Course Title</h3>
+                        <h3 id="courseTitle">Search for a course to see your scores</h3>
                         <button id="addScoreButton" type="submit" class="btn btn-primary" style="background-color: green; border:none; margin-bottom: 10px;" onclick="return addScore(event);">Add a score</button>
-                        <button id="addGolferButton" type="submit" class="btn btn-primary" style="background-color: green; border:none; margin-bottom: 10px;" onclick="return addGolfer(event);">Add a golfer</button>
+                        <button id="addGolferButton" type="submit" class="btn btn-primary" style="background-color: green; border:none; margin-bottom: 10px;" onclick="return addGolfer(event);" >Add a golfer</button>
                         <div class="table-responsive table-wrapper-scroll-y my-custom-scrollbar" >  
                             <table class="table table-striped">
                                 <thead>
@@ -105,18 +95,34 @@ FOR LATER: map.entities.clear();
                                     </tr>
                                 </thead>
                                 <tbody id="tableBody">
-                                    <tr>
-                                        <th scope="row">Gord</th>
-                                        <td>99</td>
-                                        <td>2020-04-26</td>
-                                        <td>
-                                            <a>Edit</a>
-                                        </td>
-                                        <td>
-                                            <a style="color:red;">Delete</a>
-                                        </td>
-                                    </tr>
                                     
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+    </Container>
+    <Container id="listScoresPage" style="display: none;">
+        <div id='allScores' class="col-12 col-m-6 mx-auto" 
+                    style='
+                    max-width: 1000px; 
+                    width:80%; 
+                    height:500px; 
+                    border:solid green 6px; 
+                    padding: 15px 30px;'>
+                    <div id='allScoreContent'style='width:100%; height:100%;'>
+                        <h1 class="text-center" style="border-bottom: solid 1px black; padding: 10px 5px;">Scores</h1>
+                        <div class="table-responsive table-wrapper-scroll-y my-custom-scrollbar" >  
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th scope="col"><a onclick="return sortScores('name')">Name</a></th>
+                                        <th scope="col"><a onclick="return sortScores('score')">Score</a></th>
+                                        <th scope="col"><a onclick="return sortScores('course')">Course</a></th>
+                                        <th scope="col"><a onclick="return sortScores('date')">Date</a></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tableBodyAllScores">
                                     
                                 </tbody>
                             </table>
@@ -135,7 +141,8 @@ FOR LATER: map.entities.clear();
         var retrievedLocation;
 
         function loadMapScenario() {
-
+            $("#addScoreButton").prop('disabled', true);
+            $("#addGolferButton").prop('disabled', true);
             
             //-----------------CREATE MAP------------------------//
             map = new Microsoft.Maps.Map(document.getElementById('myMap'), {
@@ -151,12 +158,74 @@ FOR LATER: map.entities.clear();
                 visible: false
             });
             infobox.setMap(map);
+        }
 
+        //-----------------TOGGLE LIST VIEW------------------------//
+        function toggleListView(){
+                $('#mainContainer').hide();
+                $('#listScoresPage').show();
+            
+            $("#searchButton").removeClass("active");
+            $("#listButton").addClass("active");
+            
+            getAllScores();
+        }
 
+        //-----------------TOGGLE MAIN VIEW------------------------//
+        function toggleMainView(){
+                $('#mainContainer').show();
+                $('#listScoresPage').hide();
+            
+            $("#listButton").removeClass("active");
+            $("#searchButton").addClass("active");
+            
         }
 
 
-        //Create a course
+        //-----------------GET ALLLLLLLLL SCORES------------------------//
+        function getAllScores(){
+            $.post('php/functions.php', {
+                act: 'getAllScores'
+                }, function(data){
+                    $('#tableBodyAllScores').html("");
+                    for(i=0; i<data.length; i++){
+                        //Add all the scores
+                        $('#tableBodyAllScores').prepend(
+                            `<tr>
+                                <th scope="row">${data[i]['golfer_name']}</th>
+                                <td>${data[i]['score']}</td>
+                                <td>${data[i]['course_name']}</td>
+                                <td>${data[i]['date']}</td>
+                            </tr>`
+                        );
+                    }
+                }, 'json');
+        }
+
+        //-----------------SORT SCORES------------------------//
+        function sortScores(key){
+            $.post('php/functions.php', {
+                act: 'sortScores',
+                key: key
+                }, function(data){
+                    $('#tableBodyAllScores').html("");
+                    for(i=0; i<data.length; i++){
+                        //Add all the scores
+                        $('#tableBodyAllScores').prepend(
+                            `<tr>
+                                <th scope="row">${data[i]['golfer_name']}</th>
+                                <td>${data[i]['score']}</td>
+                                <td>${data[i]['course_name']}</td>
+                                <td>${data[i]['date']}</td>
+                            </tr>`
+                        );
+                    }
+                }, 'json');
+        }
+
+
+
+        //---------------------------CREATE A COURSE-----------------------//
         async function createCourse(course_name){
             //use course name to get course data from API
             let latitude, longitude;
@@ -185,10 +254,14 @@ FOR LATER: map.entities.clear();
         }
 
         //Get Scores - populate the table
-        function getScores(course_name){
+        
+
+        async function getScores(course_name){
+            $("#addScoreButton").prop('disabled', false);
+            $("#addGolferButton").prop('disabled', false);
             console.log(course_name);
             createCourse(course_name);
-            $.post('php/functions.php', {
+            await $.post('php/functions.php', {
                 act: 'getScores', 
                 course: course_name
                 }, function(data){
@@ -196,28 +269,26 @@ FOR LATER: map.entities.clear();
                     console.log(data.length);
                     $('#courseTitle').html(course_name);
                     $('#tableBody').html("");
-                   
                     
                     for(i=0; i<data.length; i++){
                         //Add all the scores
-                        console.log(data[i]);
+                        let golfer_name = "'"+data[i]['golfer_name']+"'";
+                        console.log("ARGUMENT: "+golfer_name);
                         $('#tableBody').prepend(
                             `<tr>
                                 <th scope="row">${data[i]['golfer_name']}</th>
                                 <td>${data[i]['score']}</td>
+                                
                                 <td>${data[i]['date']}</td>
                                 <td>
-                                    <a>Edit</a>
+                                    <a onclick="return editScore(${data[i]['score_id']}, '${data[i]['golfer_name']}' );">Edit</a>
                                 </td>
                                 <td>
-                                    <a style="color:red;" onclick="return deleteScore(${data[i]['score_id']});">Delete</a>
+                                    <a style="color:red;" onclick="deleteScore(${data[i]['score_id']});">Delete</a>
                                 </td>
                             </tr>`
-                            
                         );
-                        
                     }
-
                 }, 'json');
         }
 
@@ -245,15 +316,14 @@ FOR LATER: map.entities.clear();
                         Cancel</a>
                     </td>
                 </tr>`
-            );
-            
+            );  
         }
 
         //Submit new golfer
-        function submitName(name){
+        async function submitName(name){
             // event.preventDefault();
             console.log("IS THIS THING WORKING? " + name);
-            $.post('php/functions.php', {
+            await $.post('php/functions.php', {
                 act: 'setGolferName', 
                 name: name
                 }, function(data){
@@ -321,9 +391,9 @@ FOR LATER: map.entities.clear();
         }
 
         //Submit New Score
-        function submitScore(id, score, date){
-            console.log(id);
-            $.post('php/functions.php', {
+        async function submitScore(id, score, date){
+            console.log(id + 'TESTING');
+            await $.post('php/functions.php', {
                 act: 'setScore', 
                 id: id,
                 score: score,
@@ -343,14 +413,113 @@ FOR LATER: map.entities.clear();
 
         //--------------------DELETE SCORE---------------------//
 
-        function deleteScore(){
-
+        function deleteScore(id){
+            $.post('php/functions.php', {
+                act: 'deleteScore',
+                id: id 
+                }, function(data){                   
+                }, 'json');
+            getScores($("#courseTitle").html());
         }
 
 
+        //--------------------EDIT SCORE---------------------//
 
 
 
+        async function editScore(id, name){
+            console.log(name);
+            let options;
+
+            await $.post('php/functions.php', {
+                act: 'getGolfers'
+                }, function(data){
+                    console.log(data);
+                    for(i=0; i<data.length; i++){
+                        //Add all the scores
+                        console.log("Name: "+data[i]["name"] + ' ');
+                        if(data[i]["name"] == name){
+                            
+                            options += 
+                                "<option value='" + data[i]['id'] + " ' selected>" + data[i]['name'] + "</option>";
+                        }else{
+                            options += 
+                                "<option value='" + data[i]['id'] + " '>" + data[i]['name'] + "</option>";
+                        }
+                    }
+
+                }, 'json');
+
+            await $.post('php/functions.php', {
+                act: 'getScores', 
+                course: $('#courseTitle').html()
+                }, function(data){
+                    console.log(data);
+                    console.log(data.length);
+                    $('#tableBody').html("");
+                    console.log("ID " + id);
+                    for(i=0; i<data.length; i++){
+                        //Add all the scores
+                        console.log(data[i]['score_id']);
+                        if(data[i]['score_id'] == id){
+                            $('#tableBody').prepend(
+                                `<tr>
+                                    <th scope="row" >
+                                    <select class="form-control" id="nameList" style="width:150px;">
+                                        ${options}
+                                    </select>
+                                    </th>
+                                        
+                                    
+                                    <td> <input id="scoreInput" value="${data[i]['score']}" style="min-width:20px;" type="text" class="form-control" aria-label="Default" aria-describedby="inputGroup-sizing-default"></td>
+                                    <td> <input id="dateInput" value="${data[i]['date']}"style="width:150px;"  type="date" class="form-control" aria-label="Default" aria-describedby="inputGroup-sizing-default"></td>
+                                    <td>
+                                        <a style="color:green;"  
+                                        onclick="return submitEdit(${data[i]['score_id']}, $('#nameList').val(), $('#scoreInput').val(), $('#dateInput').val());"
+                                        >Save</a>
+                                    </td>
+                                    <td><a onclick="return cancel();">
+                                        Cancel</a>
+                                    </td>
+                                </tr>`
+                            );
+                        }else{
+                            $('#tableBody').prepend(
+                                
+                                `<tr>
+                                    <th scope="row">${data[i]['golfer_name']}</th>
+                                    <td>${data[i]['score']}</td>
+                                    <td>${data[i]['date']}</td>
+                                    <td>
+                                        <a onclick="return editScore(${data[i]['score_id']}, '${data[i]['golfer_name']}' );">Edit</a>
+                                    </td>
+                                    <td>
+                                        <a style="color:red;" onclick="return deleteScore(${data[i]['score_id']});">Delete</a>
+                                    </td>
+                                </tr>`
+                            );
+                        }
+                    }
+                }, 'json');
+
+            
+        }
+
+
+        function submitEdit(score_id, golfer_id, score, date){
+            // deleteScore(score_id);
+            // submitScore(golfer_id, score, date);
+            $.post('php/functions.php', {
+                act: 'editScore',
+                score_id: score_id,
+                golfer_id: golfer_id,
+                score: score,
+                date: date,
+                course_name: $("#courseTitle").html()
+                }, function(data){                   
+                }, 'json');
+            getScores($("#courseTitle").html());
+        }
 
 
         //Retrieve first 10 course locations
@@ -382,6 +551,7 @@ FOR LATER: map.entities.clear();
 
 
             //Search for courses
+
             function submitClicked(event){
                 event.preventDefault()
                 let unencodedLoc = document.getElementById("locationLookUp").value;

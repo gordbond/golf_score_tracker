@@ -28,20 +28,18 @@
             echo json_encode($error);
         }
     }
-    //----------------------GET COURSE DATA--------------------//
-
-    else if($_REQUEST['act'] == "getScores")
+    //----------------------GET ALLLLLL SCORES--------------------//
+    else if($_REQUEST['act'] == "getAllScores")
     {
         $course = $_REQUEST['course'];
-        $command = "SELECT s.score_id, g.golfer_name, s.score, s.date, c.course_name 
+        $command = "SELECT s.score_id, g.golfer_id, g.golfer_name, s.score, s.date, c.course_name 
         FROM score s
         JOIN golfer g 
         ON g.golfer_id = s.golfer_id 
         JOIN course c
         ON c.course_id = s.course_id
-        WHERE c.course_name = ?";
+        ORDER BY s.date ASC";
         $stmt = $dbh->prepare($command);
-        $params = [$course];
         $success = $stmt->execute($params);
 
         
@@ -50,6 +48,7 @@
             $counter =0;
             while($row = $stmt->fetch()){
                  $scores[$counter] = array(
+                     "golfer_id" => $row["golfer_id"],
                      "golfer_name" => $row["golfer_name"],
                      "course_name" => $row["course_name"],
                      "score" => $row["score"],
@@ -66,6 +65,129 @@
             echo json_encode($error);
         }
     }
+
+    
+    //----------------------GET SCORES--------------------//
+
+    else if($_REQUEST['act'] == "getScores")
+    {
+        $course = $_REQUEST['course'];
+        $command = "SELECT s.score_id, g.golfer_id, g.golfer_name, s.score, s.date, c.course_name 
+        FROM score s
+        JOIN golfer g 
+        ON g.golfer_id = s.golfer_id 
+        JOIN course c
+        ON c.course_id = s.course_id
+        WHERE c.course_name = ?";
+        $stmt = $dbh->prepare($command);
+        $params = [$course];
+        $success = $stmt->execute($params);
+
+        
+        if($success){
+            $scores = array();
+            $counter =0;
+            while($row = $stmt->fetch()){
+                 $scores[$counter] = array(
+                     "golfer_id" => $row["golfer_id"],
+                     "golfer_name" => $row["golfer_name"],
+                     "course_name" => $row["course_name"],
+                     "score" => $row["score"],
+                     "date" => $row["date"],
+                     "score_id" => $row["score_id"]
+                 );
+                 $counter++;
+            }
+            echo json_encode($scores);
+        //ERROR
+        }else{
+            $error = array();
+            $error['test'] = "DIDN'T WORK";
+            echo json_encode($error);
+        }
+    }
+
+    //----------------------SORT SCORES--------------------//
+    else if($_REQUEST['act'] == "sortScores")
+    {
+        $command;
+        switch($_REQUEST['key']){
+            case('name'):
+                $command = "SELECT s.score_id, g.golfer_id, g.golfer_name, s.score, s.date, c.course_name 
+                FROM score s
+                JOIN golfer g 
+                ON g.golfer_id = s.golfer_id 
+                JOIN course c
+                ON c.course_id = s.course_id
+                ORDER BY g.golfer_name DESC";
+                break;
+            case('score'):
+                $command = "SELECT s.score_id, g.golfer_id, g.golfer_name, s.score, s.date, c.course_name 
+                FROM score s
+                JOIN golfer g 
+                ON g.golfer_id = s.golfer_id 
+                JOIN course c
+                ON c.course_id = s.course_id
+                ORDER BY s.score DESC";
+                break;
+            case('date'):
+                $command = "SELECT s.score_id, g.golfer_id, g.golfer_name, s.score, s.date, c.course_name 
+                FROM score s
+                JOIN golfer g 
+                ON g.golfer_id = s.golfer_id 
+                JOIN course c
+                ON c.course_id = s.course_id
+                ORDER BY s.date DESC";
+                break;
+            case('course'):
+                $command = "SELECT s.score_id, g.golfer_id, g.golfer_name, s.score, s.date, c.course_name 
+                FROM score s
+                JOIN golfer g 
+                ON g.golfer_id = s.golfer_id 
+                JOIN course c
+                ON c.course_id = s.course_id
+                ORDER BY c.course_name DESC";
+                break;
+            default:
+                $command = "SELECT s.score_id, g.golfer_id, g.golfer_name, s.score, s.date, c.course_name 
+                FROM score s
+                JOIN golfer g 
+                ON g.golfer_id = s.golfer_id 
+                JOIN course c
+                ON c.course_id = s.course_id
+                ORDER BY s.date DESC";
+                break;
+
+        }
+        
+        
+        $stmt = $dbh->prepare($command);
+        $success = $stmt->execute($params);
+
+        
+        if($success){
+            $scores = array();
+            $counter =0;
+            while($row = $stmt->fetch()){
+                 $scores[$counter] = array(
+                     "golfer_id" => $row["golfer_id"],
+                     "golfer_name" => $row["golfer_name"],
+                     "course_name" => $row["course_name"],
+                     "score" => $row["score"],
+                     "date" => $row["date"],
+                     "score_id" => $row["score_id"]
+                 );
+                 $counter++;
+            }
+            echo json_encode($scores);
+        //ERROR
+        }else{
+            $error = array();
+            $error['test'] = "DIDN'T WORK";
+            echo json_encode($error);
+        }
+    }
+
 
     //SET GOLFER NAME
     else if($_REQUEST['act'] == 'setGolferName'){
@@ -190,10 +312,42 @@
             $output['state'] = "Course add didn't work";
             echo json_encode($output);
         }
-
-        
-       
     }
+
+    //----------------------DELETE--------------------//
+
+    else if($_REQUEST['act'] == "deleteScore"){
+        $command = "DELETE FROM `score` WHERE `score`.`score_id` = ?";
+        $stmt = $dbh->prepare($command);
+        $params = [$_REQUEST['id']];
+        $success = $stmt->execute($params);
+    }
+
+    //----------------------EDIT--------------------//
+    else if($_REQUEST['act']=='editScore'){
+        $course_id;
+        //Get course id
+        $command = "SELECT course_id FROM course WHERE course_name = ?";
+        $stmt = $dbh->prepare($command);
+        $params = [$_REQUEST['course_name']];
+        $success = $stmt->execute($params);
+        
+        if($success){
+            while($row=$stmt->fetch()){
+                $course_id= $row['course_id'];
+            }
+        }
+
+        $command = "UPDATE `score` SET `golfer_id`=?,`course_id`=?,`score`=?,`date`=? WHERE `score_id` = ?";
+        $stmt = $dbh->prepare($command);
+        $params = [$_REQUEST['golfer_id'], $course_id, $_REQUEST['score'], $_REQUEST['date'], $_REQUEST['score_id']];
+        $success = $stmt->execute($params);
+
+
+    }
+
+
+
 
 
     //----------------------ERROR--------------------//
